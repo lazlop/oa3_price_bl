@@ -21,80 +21,61 @@ HEADERS = {
     "Authorization": "Bearer bl_token"
 }
 
-all_reports = {}
-# Store pricing data by hour
-prices_by_hour = [0] * 24
-# Track resource consumption by hour
-consumption_by_hour_by_resource = {}
-colors_by_resource = {}
-
 app = Flask(__name__)
 
 @app.route("/")
 def home():
-    cards = []
-    for resource_name, consumption_by_hour in consumption_by_hour_by_resource.items():
-        total_consumption = sum(consumption_by_hour)
-        total_cost = sum(consumption_by_hour[i] * prices_by_hour[i] for i in range(24))
-        cards.append({
-            "title": resource_name,
-            "color": colors_by_resource[resource_name],
-            "description": f"Consumption {total_consumption:.2f} kWh, Cost ${total_cost:.2f}",
-        })
+    # Get current prices from the event
+    current_prices = get_current_event_prices()
+    price_now = current_prices[0]
     
-    # Add a card for the pricing information
-    avg_price = sum(prices_by_hour) / 24 if prices_by_hour else 0
-    cards.append({
+    # Create a card for the pricing information
+    cards = [{
         "title": "Pricing Information",
         "color": "rgba(0, 0, 0, 1)",
-        "description": f"Avg Price: ${avg_price:.4f}/kWh",
-    })
+        "description": f"Current Price: ${price_now:.4f}/kWh",
+    }]
     
     return render_template("index.html", cards=cards)
 
 
+def get_current_event_prices():
+    """Get the current pricing event from the VTN and extract price data"""
+    response = requests.get(
+        f"{VTN_URL}/events",
+        headers=HEADERS,
+    )
+    events = response.json()
+    if not events:
+        return [0] * 24  # Return default prices if no events
+    
+    # Get the last event (assuming it's a pricing event, and that new events are appended to end of list)
+    event = events[-1]
+    event_prices = []
+    for interval in event.get("intervals", []):
+        for payload in interval.get("payloads", []):
+            if payload.get("type") == "PRICE" and payload.get("values"):
+                event_prices.append(payload["values"][0])
+    
+    return event_prices
+
 @app.route('/chart_data')
 def data():
-    # Create datasets for consumption by resource
-    load_data_set = []
-    for resource_name, consumption_by_hour in consumption_by_hour_by_resource.items():
-        data_set = {
-            "label": f"{resource_name} Consumption (kWh)",
-            "data": consumption_by_hour,
-            "borderColor": colors_by_resource[resource_name],
-            "fill": False,
-            "yAxisID": 'consumption'
-        }
-        load_data_set.append(data_set)
+    # Get current price data from the event
+    current_prices = get_current_event_prices()
     
-    # Create dataset for total consumption
-    total_consumption_by_hour = [0] * 24
-    for i in range(24):
-        for consumption in consumption_by_hour_by_resource.values():
-            total_consumption_by_hour[i] += consumption[i]
-    
-    total_data_set = {
-        "label": "Total Consumption (kWh)",
-        "data": total_consumption_by_hour,
-        "borderColor": "rgba(90, 90, 90, 1)",
-        "fill": False,
-        "yAxisID": 'consumption'
-    }
-    load_data_set.append(total_data_set)
-    
-    # Create dataset for pricing
+    # Create dataset only for pricing
     price_data_set = {
         "label": "Price ($/kWh)",
-        "data": prices_by_hour,
+        "data": current_prices,
         "borderColor": "rgba(255, 99, 132, 1)",
         "fill": False,
         "yAxisID": 'price'
     }
-    load_data_set.append(price_data_set)
-
+    
     chart_data = {
         "labels": list(range(24)),
-        "datasets": load_data_set,
+        "datasets": [price_data_set],
     }
     return jsonify(chart_data)
 
@@ -172,6 +153,9 @@ def create_date_string(hour):
 
 
 def _create_price_interval_for_hour(hour):
+    # Get current prices from the event
+    current_prices = get_current_event_prices()
+    
     return {
         "id": hour,
         "intervalPeriod": {
@@ -181,7 +165,7 @@ def _create_price_interval_for_hour(hour):
         "payloads": [
             {
                 "type": "PRICE",
-                "values": [prices_by_hour[hour]]
+                "values": [current_prices[hour]]
             },
         ],
     }
