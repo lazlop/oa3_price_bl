@@ -1,0 +1,231 @@
+# WORKS FOR VTN RUNNING ON HA 
+# seems to create two events (program exists)
+# Not yet sure how to delete events ...
+# make sure code doesn't create multiple events when in HA. 
+
+from flask import Flask, render_template, redirect, url_for, jsonify
+import flask
+import requests
+import json
+from datetime import datetime, timedelta
+import threading
+import time
+import pprint
+import random
+
+# VTN_URL = "http://192.168.122.226:8080/openadr3/3.0.1" on HA
+VTN_URL = "http://localhost:8080/openadr3/3.0.1"
+
+HEADERS = {
+    "Content-type": "application/json",
+    "Authorization": "Bearer bl_token"
+}
+
+all_reports = {}
+# Store pricing data by hour
+prices_by_hour = [0] * 24
+# Track resource consumption by hour
+consumption_by_hour_by_resource = {}
+colors_by_resource = {}
+
+app = Flask(__name__)
+
+@app.route("/")
+def home():
+    cards = []
+    for resource_name, consumption_by_hour in consumption_by_hour_by_resource.items():
+        total_consumption = sum(consumption_by_hour)
+        total_cost = sum(consumption_by_hour[i] * prices_by_hour[i] for i in range(24))
+        cards.append({
+            "title": resource_name,
+            "color": colors_by_resource[resource_name],
+            "description": f"Consumption {total_consumption:.2f} kWh, Cost ${total_cost:.2f}",
+        })
+    
+    # Add a card for the pricing information
+    avg_price = sum(prices_by_hour) / 24 if prices_by_hour else 0
+    cards.append({
+        "title": "Pricing Information",
+        "color": "rgba(0, 0, 0, 1)",
+        "description": f"Avg Price: ${avg_price:.4f}/kWh",
+    })
+    
+    return render_template("index.html", cards=cards)
+
+
+@app.route('/chart_data')
+def data():
+    # Create datasets for consumption by resource
+    load_data_set = []
+    for resource_name, consumption_by_hour in consumption_by_hour_by_resource.items():
+        data_set = {
+            "label": f"{resource_name} Consumption (kWh)",
+            "data": consumption_by_hour,
+            "borderColor": colors_by_resource[resource_name],
+            "fill": False,
+            "yAxisID": 'consumption'
+        }
+        load_data_set.append(data_set)
+    
+    # Create dataset for total consumption
+    total_consumption_by_hour = [0] * 24
+    for i in range(24):
+        for consumption in consumption_by_hour_by_resource.values():
+            total_consumption_by_hour[i] += consumption[i]
+    
+    total_data_set = {
+        "label": "Total Consumption (kWh)",
+        "data": total_consumption_by_hour,
+        "borderColor": "rgba(90, 90, 90, 1)",
+        "fill": False,
+        "yAxisID": 'consumption'
+    }
+    load_data_set.append(total_data_set)
+    
+    # Create dataset for pricing
+    price_data_set = {
+        "label": "Price ($/kWh)",
+        "data": prices_by_hour,
+        "borderColor": "rgba(255, 99, 132, 1)",
+        "fill": False,
+        "yAxisID": 'price'
+    }
+    load_data_set.append(price_data_set)
+
+    chart_data = {
+        "labels": list(range(24)),
+        "datasets": load_data_set,
+    }
+    return jsonify(chart_data)
+
+
+def _create_program() -> bool:
+    data = load_json("program.json")
+    response = requests.post(
+        f"{VTN_URL}/programs",
+        headers=HEADERS,
+        json=data
+    )
+    if response.status_code == 201:
+        print("Created program")
+        return True
+    # The program was already on the VTN
+    if response.status_code == 409:
+        print("Program already exists")
+        return True
+
+    print("Failed to create program")
+    print("Create program, status code:", response.status_code)
+    print("Create program, response body:", response.json())
+    return False
+
+def _delete_event(event_id = 0) -> bool:
+    response = requests.delete(
+        f"{VTN_URL}/events/{event_id}",
+        headers=HEADERS,
+    )
+    if response.status_code == 200:
+        print("Okay")
+        return True
+    # The program was already on the VTN
+    if response.status_code == 400:
+        print("bad request")
+        return True
+
+    print("Failed to delete event")
+    print("status code:", response.status_code)
+    print("response body:", response.json())
+    return False
+ 
+
+# This event publishes pricing information to VENs
+def _create_pricing_event(interval_start = 0):
+    """post example price, optionally adjusting order of intervals"""
+    data = load_json("event_pricing.json")
+    
+    # Extract pricing data from the event
+    intervals = data["intervals"]
+    updated_intervals = intervals[interval_start:] + intervals[:interval_start]
+    data["intervals"] = updated_intervals
+    
+    response = requests.post(
+        f"{VTN_URL}/events",
+        headers=HEADERS,
+        json=data
+    )
+    if response.status_code == 201:
+        print("Created pricing event")
+        return True
+    print("Failed to create pricing event")
+    print("Create event, status code:", response.status_code)
+    print("Create event, response body:", response.json())
+
+
+def create_date_string(hour):
+    # Use today's date as the base date
+    base_date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+
+    # Adjust the hour and format as ISO 8601 with milliseconds and 'Z'
+    date_string = (base_date + timedelta(hours=hour)).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
+    
+    return date_string
+
+
+def _create_price_interval_for_hour(hour):
+    return {
+        "id": hour,
+        "intervalPeriod": {
+            "start": create_date_string(hour),
+            "duration": "PT1H"
+        },
+        "payloads": [
+            {
+                "type": "PRICE",
+                "values": [prices_by_hour[hour]]
+            },
+        ],
+    }
+
+
+# # Send pricing information to VENs
+# def _post_price_event(ven_id, resource_name):
+#     # Create a pricing event based on event_pricing.json
+#     with open("event_pricing.json", "r") as json_file:
+#         data = json.load(json_file)
+    
+#     # Update targets if needed
+#     if "targets" in data:
+#         data["targets"][0]["values"] = [ven_id]
+    
+#     # Clear existing intervals and add current pricing
+#     data["intervals"] = []
+#     for i in range(24):
+#         interval = _create_price_interval_for_hour(i)
+#         data["intervals"].append(interval)
+
+#     response = requests.post(
+#         f"{VTN_URL}/events",
+#         headers=HEADERS,
+#         json=data
+#     )
+#     if response.status_code == 201:
+#         print(f"Posted price event for {resource_name}")
+#         return
+#     print(f"Failed to post price event for {resource_name}")
+#     print("Code:", response.status_code)
+#     print("Response Body:", response.json())
+
+def load_json(file_name):
+    with open(file_name, "r") as json_file:
+        data = json.load(json_file)
+    return data
+
+
+if __name__ == "__main__":
+    _create_program()
+    for i in range(0,24):
+        _create_pricing_event(i)  
+        time.sleep(5)
+        _delete_event(i) # get an error message but delete still works.
+        # do I have to also delete the program? 
+    app.run(port=8081, debug=True)
