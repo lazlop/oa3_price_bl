@@ -1,2 +1,8 @@
 # oa3_price_bl
 OpenADR3 business logic for prices, posting dynamic prices for demo
+
+## To run VEN
+
+edit app.py and run flask app
+
+`python app.py`
