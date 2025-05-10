@@ -11,7 +11,7 @@
 
     <div class="container mt-5">
         <h1 class="text-center">Business Logic</h1>
-        <p class="text-center">BL for capacity program.</p>
+        <p class="text-center">BL for OA3 pricing demo.</p>
 
         <div class="d-flex flex-row justify-content-start">
             {% for card in cards %}
@@ -29,7 +29,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <div class="container mt-5">
-        <h2>Grid load</h2>
+        <h2>Hourly Pricing</h2>
         <canvas id="loadChart2"></canvas>
     </div>
     <script>
@@ -57,8 +57,8 @@
                         responsive: true,
                         animation: false,
                         scales: {
-                            x: { title: { display: true, text: 'X-axis Label' } },
-                            y: { title: { display: true, text: 'Y-axis Label' } }
+                            x: { title: { display: true, text: 'time' } },
+                            y: { title: { display: true, text: 'price ($/kWh)' } }
                         }
                     }
                 });

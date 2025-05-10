@@ -69,8 +69,7 @@ def data():
         "label": "Price ($/kWh)",
         "data": current_prices,
         "borderColor": "rgba(255, 99, 132, 1)",
-        "fill": False,
-        "yAxisID": 'price'
+        "fill": False
     }
     
     chart_data = {
