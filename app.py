@@ -203,34 +203,12 @@ def _delete_all_events():
     
     return last_id
 
-
-# # Send pricing information to VENs
-# def _post_price_event(ven_id, resource_name):
-#     # Create a pricing event based on event_pricing.json
-#     with open("event_pricing.json", "r") as json_file:
-#         data = json.load(json_file)
-    
-#     # Update targets if needed
-#     if "targets" in data:
-#         data["targets"][0]["values"] = [ven_id]
-    
-#     # Clear existing intervals and add current pricing
-#     data["intervals"] = []
-#     for i in range(24):
-#         interval = _create_price_interval_for_hour(i)
-#         data["intervals"].append(interval)
-
-#     response = requests.post(
-#         f"{VTN_URL}/events",
-#         headers=HEADERS,
-#         json=data
-#     )
-#     if response.status_code == 201:
-#         print(f"Posted price event for {resource_name}")
-#         return
-#     print(f"Failed to post price event for {resource_name}")
-#     print("Code:", response.status_code)
-#     print("Response Body:", response.json())
+def _post_prices_with_threading():
+    while True:
+        for i in range(0, 24):
+            _create_pricing_event(i)
+            time.sleep(5)
+            _delete_all_events()
 
 def load_json(file_name):
     with open(file_name, "r") as json_file:
@@ -241,8 +219,7 @@ def load_json(file_name):
 if __name__ == "__main__":
     _create_program()
     _delete_all_events()
-    for i in range(0,24):
-        _create_pricing_event(i)  
-        time.sleep(5)
-        _delete_all_events()
+    # Start the worker in a separate thread
+    thread = threading.Thread(target=_post_prices_with_threading, daemon=True)
+    thread.start()
     app.run(port=8081, debug=True)
