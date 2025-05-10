@@ -186,6 +186,23 @@ def _create_price_interval_for_hour(hour):
         ],
     }
 
+def _delete_all_events():
+    response = requests.get(
+        f"{VTN_URL}/events",
+        headers=HEADERS,
+    )
+    events = response.json()
+    if events == []:
+        print('No events to delete')
+        return
+    for event in events:
+        print(f"Deleting event {event['id']}")
+        _delete_event(event["id"])
+        
+    last_id = events[-1]["id"]
+    
+    return last_id
+
 
 # # Send pricing information to VENs
 # def _post_price_event(ven_id, resource_name):
@@ -223,9 +240,9 @@ def load_json(file_name):
 
 if __name__ == "__main__":
     _create_program()
+    _delete_all_events()
     for i in range(0,24):
         _create_pricing_event(i)  
         time.sleep(5)
-        _delete_event(i) # get an error message but delete still works.
-        # do I have to also delete the program? 
+        _delete_all_events()
     app.run(port=8081, debug=True)
