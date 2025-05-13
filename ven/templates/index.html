@@ -149,7 +149,7 @@
             
             // Update the value displays
             document.getElementById('gauge-value1').textContent = `$${currentValue.toFixed(4)}/kWh`;
-            document.getElementById('gauge-value2').textContent = `${currentThrottle.toFixed(2) * 100}%`;
+            document.getElementById('gauge-value2').textContent = `${(currentThrottle * 100).toFixed(0)}%`;
             
             // Update status texts based on values
             const range = max - min;
