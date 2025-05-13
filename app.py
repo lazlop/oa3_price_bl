@@ -11,10 +11,11 @@ from datetime import datetime, timedelta
 import threading
 import time
 import pprint
-import random
+from random import random
 
 # VTN_URL = "http://192.168.122.226:8080/openadr3/3.0.1" on HA
-VTN_URL = "http://localhost:8080/openadr3/3.0.1"
+# VTN_URL = "http://localhost:8080/openadr3/3.0.1"
+VTN_URL = "http://oa3ha:8080/openadr3/3.0.1"
 
 HEADERS = {
     "Content-type": "application/json",
@@ -25,18 +26,7 @@ app = Flask(__name__)
 
 @app.route("/")
 def home():
-    # Get current prices from the event
-    current_prices = get_current_event_prices()
-    price_now = current_prices[0]
-    
-    # Create a card for the pricing information
-    cards = [{
-        "title": "Pricing Information",
-        "color": "rgba(0, 0, 0, 1)",
-        "description": f"Current Price: ${price_now:.4f}/kWh",
-    }]
-    
-    return render_template("index.html", cards=cards)
+    return render_template("index.html")
 
 
 def get_current_event_prices():
@@ -63,20 +53,27 @@ def get_current_event_prices():
 def data():
     # Get current price data from the event
     current_prices = get_current_event_prices()
+    throttle = _get_current_throttle_amt()
+    # Get the current price (first hour)
+    current_price = current_prices[0]
     
-    # Create dataset only for pricing
-    price_data_set = {
-        "label": "Price ($/kWh)",
-        "data": current_prices,
-        "borderColor": "rgba(255, 99, 132, 1)",
-        "fill": False
+    # Calculate min and max for gauge range
+    # Using a buffer of 20% below min and above max for better visualization
+    min_price = min(current_prices) * 0.8
+    max_price = max(current_prices) * 1.2
+    
+    # Create gauge chart data
+    gauge_data = {
+        "currentValue": current_price,
+        "min": min_price,
+        "max": max_price,
+        "allPrices": current_prices,  # Keep all prices for reference if needed
+        "currentThrottle": throttle,
+        "minThrottle": 0,
+        "maxThrottle": 1
     }
     
-    chart_data = {
-        "labels": list(range(24)),
-        "datasets": [price_data_set],
-    }
-    return jsonify(chart_data)
+    return jsonify(gauge_data)
 
 
 def _create_program() -> bool:
@@ -98,6 +95,15 @@ def _create_program() -> bool:
     print("Create program, status code:", response.status_code)
     print("Create program, response body:", response.json())
     return False
+
+def _throttle_generator():
+    i = 0
+    while True:
+        yield round(i%24/24, 2)
+        i = i + 1
+throttle = _throttle_generator()
+def _get_current_throttle_amt():
+    return next(throttle)
 
 def _delete_event(event_id = 0) -> bool:
     response = requests.delete(
