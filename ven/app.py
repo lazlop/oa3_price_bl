@@ -36,16 +36,6 @@ prices = _throttle_generator()
 def _get_current_event_price():
     return next(prices)
 
-def create_date_string(hour):
-    # Use today's date as the base date
-    base_date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-
-    # Adjust the hour and format as ISO 8601 with milliseconds and 'Z'
-    date_string = (base_date + timedelta(hours=hour)).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
-    
-    return date_string
-
-
 @app.route('/chart_data')
 def data():
     # Get current price data from the event
