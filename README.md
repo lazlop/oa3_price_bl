@@ -10,6 +10,6 @@ if you are missing dependencies or would like to use virtual environment
 `. .venv/bin/activate` 
 
 
-edit app.py and run flask app
+edit app.py and run flask app in either ven or bl 
 
 `python app.py`
