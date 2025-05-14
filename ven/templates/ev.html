@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Price Gauge</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        /* Optimize for 7" screen */
+        body {
+            padding: 0;
+            margin: 0;
+            font-size: 14px;
+        }
+        .container {
+            padding: 5px;
+            max-width: 100%;
+        }
+        h1 {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+        h2 {
+            font-size: 1.2rem;
+            margin-bottom: 0.3rem;
+        }
+        .gauge-container {
+            height: 250px;
+            margin-bottom: 15px;
+        }
+        .gauge-value {
+            font-size: 24px;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+        .row {
+            margin: 0;
+        }
+        .col {
+            padding: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-2">
+        <h1 class="text-center">EV Price & Control</h1>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <div class="container">
+        <div class="row">
+            <!-- First Gauge -->
+            <div class="col col-6">
+                <h2 class="text-center">Current Price</h2>
+                <div class="gauge-container">
+                    <canvas id="gaugeChart1"></canvas>
+                </div>
+                <div id="gauge-value1" class="text-center gauge-value"></div>
+                <div id="price-status" class="text-center" style="font-size: 18px; font-weight: bold;"></div>
+            </div>
+
+            <!-- Second Gauge -->
+            <div class="col col-6">
+                <h2 class="text-center">EV Control</h2>
+                <div class="gauge-container position-relative">
+                    <canvas id="gaugeChart2"></canvas>
+                    <!-- Preloaded SVGs for EV Charging - switched via display property -->
+                    <div style="position: absolute; top: 75%; left: 50%; transform: translate(-50%, -50%); width: 300px; height: 90px; z-index: 10;">
+                        <object id="ev-charging" class="ev-svg" type="image/svg+xml" data="/static/images/ev-charging.svg" width="100%" height="100%" style="display: none;"></object>
+                        <object id="ev-maintaining" class="ev-svg" type="image/svg+xml" data="/static/images/ev-maintaining.svg" width="100%" height="100%"></object>
+                        <object id="ev-discharging" class="ev-svg" type="image/svg+xml" data="/static/images/ev-discharging.svg" width="100%" height="100%" style="display: none;"></object>
+                    </div>
+                </div>
+                <div id="gauge-value2" class="text-center gauge-value"></div>
+                <div id="throttle-status" class="text-center" style="font-size: 18px; font-weight: bold;"></div>
+            </div>
+        </div>
+    </div>
+    <script>
+        let chart1, chart2;
+
+        async function fetchData() {
+            const response = await fetch('/chart_data');
+            return await response.json();
+        }
+
+        function getGaugeColorsPrice(value, min, max) {
+            // Define color stops for the gauge
+            const range = max - min;
+            const lowThreshold = min + range * 0.33;
+            const highThreshold = min + range * 0.66;
+
+            if (value < lowThreshold) {
+                return 'rgba(40, 167, 69, 1)'; // Bright green for low prices
+            } else if (value < highThreshold) {
+                return 'rgba(255, 205, 86, 1)'; // Yellow for medium prices
+            } else {
+                return 'rgba(255, 99, 132, 1)'; // Red for high prices
+            }
+        }
+        function getGaugeColorsLoad(value, min, max) {
+            // Define color stops for the gauge
+            const range = max - min;
+            const lowThreshold = min + range * 0.33;
+            const highThreshold = min + range * 0.66;
+
+            if (value < lowThreshold) {
+                return 'rgba(255, 99, 132, 1)'; // Red for high prices
+            } else if (value < highThreshold) {
+                return 'rgba(255, 205, 86, 1)'; // Yellow for medium prices
+            } else {
+                return 'rgba(40, 167, 69, 1)'; // Bright green for low prices
+            }
+        }
+
+        function createGaugeConfig(percentage, gaugeColor) {
+            return {
+                type: 'doughnut',
+                data: {
+                    labels: ['Price', 'Remaining'],
+                    datasets: [{
+                        data: [percentage * 100, 100 - (percentage * 100)],
+                        backgroundColor: [gaugeColor, 'rgba(200, 200, 200, 0.2)'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    circumference: 180,
+                    rotation: -90,
+                    cutout: '75%',
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            enabled: false
+                        }
+                    },
+                    animation: false
+                }
+            };
+        }
+
+        function updateChart(chart, percentage, gaugeColor) {
+            chart.data.datasets[0].data = [percentage * 100, 100 - (percentage * 100)];
+            chart.data.datasets[0].backgroundColor = [gaugeColor, 'rgba(200, 200, 200, 0.2)'];
+            chart.update({ duration: 0 });
+        }
+
+        async function drawCharts() {
+            const gaugeData = await fetchData();
+            const currentValue = gaugeData.currentValue;
+            const min = gaugeData.min;
+            const max = gaugeData.max;
+            const minThrottle = gaugeData.minThrottle;
+            const maxThrottle = gaugeData.maxThrottle;
+            const currentThrottle = gaugeData.currentThrottle;
+            const currentHour = gaugeData.currentHour;
+
+            // Calculate the percentage of the current value within the range
+            const percentage = (currentValue - min) / (max - min);
+
+            // Get color based on the current value
+            const gaugeColor = getGaugeColorsPrice(currentValue, min, max);
+            const gauge2Color = getGaugeColorsLoad(currentThrottle, minThrottle, maxThrottle);
+
+            // Update the value displays
+            document.getElementById('gauge-value1').textContent = `$${currentValue.toFixed(4)}/kWh`;
+            document.getElementById('gauge-value2').textContent = `${(currentThrottle * 100).toFixed(0)}%`;
+
+            // Update status texts based on values
+            const range = max - min;
+            const lowThreshold = min + range * 0.33;
+            const highThreshold = min + range * 0.66;
+
+            // Update price status
+            const priceStatus = document.getElementById('price-status');
+            if (currentValue < lowThreshold) {
+                priceStatus.textContent = "Hour " + currentHour + " - Prices are Low";
+                priceStatus.style.color = gaugeColor;
+            } else if (currentValue < highThreshold) {
+                priceStatus.textContent = "Hour " + currentHour + " - Prices are Medium";
+                priceStatus.style.color = gaugeColor; // Yellow
+            } else {
+                priceStatus.textContent = "Hour " + currentHour + " - Prices are High";
+                priceStatus.style.color = gaugeColor; // Red
+            }
+
+            // Update throttle status and SVG
+            const throttleStatus = document.getElementById('throttle-status');
+            const evCharging = document.getElementById('ev-charging');
+            const evMaintaining = document.getElementById('ev-maintaining');
+            const evDischarging = document.getElementById('ev-discharging');
+            
+            // Hide all SVGs first
+            evCharging.style.display = 'none';
+            evMaintaining.style.display = 'none';
+            evDischarging.style.display = 'none';
+            
+            // Show the appropriate SVG based on throttle value
+            if (currentThrottle < 0.33) {
+                throttleStatus.textContent = "Stopping Charging...";
+                throttleStatus.style.color = gauge2Color;
+                evDischarging.style.display = 'block';
+            } else if (currentThrottle < 0.66) {
+                throttleStatus.textContent = "Charging at Half Power...";
+                throttleStatus.style.color = gauge2Color;
+                evMaintaining.style.display = 'block';
+            } else {
+                throttleStatus.textContent = "Charging at Full Power...";
+                throttleStatus.style.color = gauge2Color;
+                evCharging.style.display = 'block';
+            }
+
+            // Update or create first chart
+            if (chart1) {
+                updateChart(chart1, percentage, gaugeColor);
+            } else {
+                const ctx1 = document.getElementById('gaugeChart1').getContext('2d');
+                chart1 = new Chart(ctx1, createGaugeConfig(percentage, gaugeColor));
+            }
+
+            // Update or create second chart
+            if (chart2) {
+                updateChart(chart2, currentThrottle, gauge2Color);
+            } else {
+                const ctx2 = document.getElementById('gaugeChart2').getContext('2d');
+                chart2 = new Chart(ctx2, createGaugeConfig(currentThrottle, gauge2Color));
+            }
+        }
+
+        drawCharts();
+        setInterval(drawCharts, 1000);
+    </script>
+
+    <!-- Bootstrap JS and dependencies -->
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+</html>
