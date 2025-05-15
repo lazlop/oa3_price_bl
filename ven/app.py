@@ -16,7 +16,7 @@ import numpy as np
 
 app = Flask(__name__)
 
-VEN_TYPE = "ev" # "hvac, EV, or battery"
+VEN_TYPE = "wh" # "hvac, wh, or hvac"
 
 @app.route("/")
 def home():

@@ -54,8 +54,12 @@
             <!-- First Gauge -->
             <div class="col col-6">
                 <h2 class="text-center">Current Price</h2>
-                <div class="gauge-container">
+                <div class="gauge-container position-relative">
                     <canvas id="gaugeChart1"></canvas>
+                    <!-- Time Display positioned like SVGs in right gauge -->
+                    <div style="position: absolute; top: 85%; left: 50%; transform: translate(-50%, -50%); width: 300px; height: 90px; z-index: 10;">
+                        <div id="current-time" class="text-center" style="font-size: 24px; font-weight: bold;"></div>
+                    </div>
                 </div>
                 <div id="gauge-value1" class="text-center gauge-value"></div>
                 <div id="price-status" class="text-center" style="font-size: 18px; font-weight: bold;"></div>
@@ -69,7 +73,7 @@
                     <!-- Preloaded SVGs for EV Charging - switched via display property -->
                     <div style="position: absolute; top: 75%; left: 50%; transform: translate(-50%, -50%); width: 300px; height: 90px; z-index: 10;">
                         <object id="ev-charging" class="ev-svg" type="image/svg+xml" data="/static/images/ev-charging.svg" width="100%" height="100%" style="display: none;"></object>
-                        <object id="ev-maintaining" class="ev-svg" type="image/svg+xml" data="/static/images/ev-maintaining.svg" width="100%" height="100%"></object>
+                        <object id="ev-maintaining" class="ev-svg" type="image/svg+xml" data="/static/images/ev-maintaining.svg" width="100%" height="100%" style="display: none;"></object>
                         <object id="ev-discharging" class="ev-svg" type="image/svg+xml" data="/static/images/ev-discharging.svg" width="100%" height="100%" style="display: none;"></object>
                     </div>
                 </div>
@@ -177,17 +181,25 @@
             const lowThreshold = min + range * 0.33;
             const highThreshold = min + range * 0.66;
 
+            // Format and display the current hour as time
+            const timeDisplay = document.getElementById('current-time');
+            const formattedTime = "Time - "+ currentHour + ":00";
+            timeDisplay.textContent = formattedTime;
+            
             // Update price status
             const priceStatus = document.getElementById('price-status');
             if (currentValue < lowThreshold) {
-                priceStatus.textContent = "Hour " + currentHour + " - Prices are Low";
+                priceStatus.textContent = "Prices are Low";
                 priceStatus.style.color = gaugeColor;
+                priceStatus.style.fontWeight = "bold";
             } else if (currentValue < highThreshold) {
-                priceStatus.textContent = "Hour " + currentHour + " - Prices are Medium";
-                priceStatus.style.color = gaugeColor; // Yellow
+                priceStatus.textContent = "Prices are Medium";
+                priceStatus.style.color = gaugeColor;
+                priceStatus.style.fontWeight = "bold";
             } else {
-                priceStatus.textContent = "Hour " + currentHour + " - Prices are High";
-                priceStatus.style.color = gaugeColor; // Red
+                priceStatus.textContent = "Prices are High";
+                priceStatus.style.color = gaugeColor;
+                priceStatus.style.fontWeight = "bold";
             }
 
             // Update throttle status and SVG

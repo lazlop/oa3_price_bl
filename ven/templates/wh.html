@@ -44,7 +44,7 @@
 </head>
 <body>
     <div class="container mt-2">
-        <h1 class="text-center">HVAC Price & Control</h1>
+        <h1 class="text-center">WH Price & Control</h1>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -67,14 +67,14 @@
 
             <!-- Second Gauge -->
             <div class="col col-6">
-                <h2 class="text-center">HVAC Control</h2>
+                <h2 class="text-center">WH Control</h2>
                 <div class="gauge-container position-relative">
                     <canvas id="gaugeChart2"></canvas>
-                    <!-- Preloaded SVGs for hvac Charging - switched via display property -->
+                    <!-- Preloaded SVGs for wh Charging - switched via display property -->
                     <div style="position: absolute; top: 75%; left: 50%; transform: translate(-50%, -50%); width: 300px; height: 90px; z-index: 10;">
-                        <object id="hvac-charging" class="hvac-svg" type="image/svg+xml" data="/static/images/hvac-charging.svg" width="100%" height="100%" style="display: none;"></object>
-                        <object id="hvac-maintaining" class="hvac-svg" type="image/svg+xml" data="/static/images/hvac-maintaining.svg" width="100%" height="100%" style="display: none;"></object>
-                        <object id="hvac-discharging" class="hvac-svg" type="image/svg+xml" data="/static/images/hvac-discharging.svg" width="100%" height="100%" style="display: none;"></object>
+                        <object id="wh-charging" class="wh-svg" type="image/svg+xml" data="/static/images/wh-charging.svg" width="100%" height="100%" style="display: none;"></object>
+                        <object id="wh-maintaining" class="wh-svg" type="image/svg+xml" data="/static/images/wh-maintaining.svg" width="100%" height="100%" style="display: none;"></object>
+                        <object id="wh-discharging" class="wh-svg" type="image/svg+xml" data="/static/images/wh-discharging.svg" width="100%" height="100%" style="display: none;"></object>
                     </div>
                 </div>
                 <div id="gauge-value2" class="text-center gauge-value"></div>
@@ -173,7 +173,7 @@
             const gauge2Color = getGaugeColorsLoad(currentThrottle, minThrottle, maxThrottle);
 
             // Update the value displays
-            document.getElementById('gauge-value1').textContent = `$${currentValue.toFixed(4)}/khvac`;
+            document.getElementById('gauge-value1').textContent = `$${currentValue.toFixed(4)}/kWh`;
             document.getElementById('gauge-value2').textContent = `${(currentThrottle * 100).toFixed(0)}%`;
 
             // Update status texts based on values
@@ -204,28 +204,28 @@
 
             // Update throttle status and SVG
             const throttleStatus = document.getElementById('throttle-status');
-            const hvacCharging = document.getElementById('hvac-charging');
-            const hvacMaintaining = document.getElementById('hvac-maintaining');
-            const hvacDischarging = document.getElementById('hvac-discharging');
+            const whCharging = document.getElementById('wh-charging');
+            const whMaintaining = document.getElementById('wh-maintaining');
+            const whDischarging = document.getElementById('wh-discharging');
             
             // Hide all SVGs first
-            hvacCharging.style.display = 'none';
-            hvacMaintaining.style.display = 'none';
-            hvacDischarging.style.display = 'none';
+            whCharging.style.display = 'none';
+            whMaintaining.style.display = 'none';
+            whDischarging.style.display = 'none';
             
             // Show the appropriate SVG based on throttle value
             if (currentThrottle < 0.33) {
-                throttleStatus.textContent = "Increasing setpoint to reduce load...";
+                throttleStatus.textContent = "Using stored energy...";
                 throttleStatus.style.color = gauge2Color;
-                hvacDischarging.style.display = 'block';
+                whDischarging.style.display = 'block';
             } else if (currentThrottle < 0.66) {
-                throttleStatus.textContent = "Maintaining temperature...";
+                throttleStatus.textContent = "Maintaining water temperature...";
                 throttleStatus.style.color = gauge2Color;
-                hvacMaintaining.style.display = 'block';
+                whMaintaining.style.display = 'block';
             } else {
-                throttleStatus.textContent = "Precooling to store thermal energy...";
+                throttleStatus.textContent = "Increasing temperature to store energy...";
                 throttleStatus.style.color = gauge2Color;
-                hvacCharging.style.display = 'block';
+                whCharging.style.display = 'block';
             }
 
             // Update or create first chart
