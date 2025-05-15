@@ -90,12 +90,8 @@
             return await response.json();
         }
 
-        function getGaugeColorsPrice(value, min, max) {
-            // Define color stops for the gauge
-            const range = max - min;
-            const lowThreshold = min + range * 0.33;
-            const highThreshold = min + range * 0.66;
-
+        function getGaugeColorsPrice(value, lowThreshold, highThreshold) {
+            // Use static threshold values directly
             if (value < lowThreshold) {
                 return 'rgba(40, 167, 69, 1)'; // Bright green for low prices
             } else if (value < highThreshold) {
@@ -104,12 +100,8 @@
                 return 'rgba(255, 99, 132, 1)'; // Red for high prices
             }
         }
-        function getGaugeColorsLoad(value, min, max) {
-            // Define color stops for the gauge
-            const range = max - min;
-            const lowThreshold = min + range * 0.33;
-            const highThreshold = min + range * 0.66;
-
+        function getGaugeColorsLoad(value, lowThreshold, highThreshold) {
+            // Use static threshold values directly
             if (value < lowThreshold) {
                 return 'rgba(255, 99, 132, 1)'; // Red for high prices
             } else if (value < highThreshold) {
@@ -164,35 +156,38 @@
             const maxThrottle = gaugeData.maxThrottle;
             const currentThrottle = gaugeData.currentThrottle;
             const currentHour = gaugeData.currentHour;
+            
+            // Get threshold values from gauge data
+            const priceLowThreshold = gaugeData.priceLowThreshold;
+            const priceHighThreshold = gaugeData.priceHighThreshold;
+            const throttleLowThreshold = gaugeData.throttleLowThreshold;
+            const throttleHighThreshold = gaugeData.throttleHighThreshold;
 
             // Calculate the percentage of the current value within the range
             const percentage = (currentValue - min) / (max - min);
 
-            // Get color based on the current value
-            const gaugeColor = getGaugeColorsPrice(currentValue, min, max);
-            const gauge2Color = getGaugeColorsLoad(currentThrottle, minThrottle, maxThrottle);
+            // Get color based on the current value using thresholds from gauge data
+            const gaugeColor = getGaugeColorsPrice(currentValue, priceLowThreshold, priceHighThreshold);
+            const gauge2Color = getGaugeColorsLoad(currentThrottle, throttleLowThreshold, throttleHighThreshold);
 
             // Update the value displays
             document.getElementById('gauge-value1').textContent = `$${currentValue.toFixed(4)}/kWh`;
             document.getElementById('gauge-value2').textContent = `${(currentThrottle * 100).toFixed(0)}%`;
 
-            // Update status texts based on values
-            const range = max - min;
-            const lowThreshold = min + range * 0.33;
-            const highThreshold = min + range * 0.66;
+            // Update status texts based on values from gauge data
 
             // Format and display the current hour as time
             const timeDisplay = document.getElementById('current-time');
             const formattedTime = "Time - "+ currentHour + ":00";
             timeDisplay.textContent = formattedTime;
             
-            // Update price status
+            // Update price status using thresholds from gauge data
             const priceStatus = document.getElementById('price-status');
-            if (currentValue < lowThreshold) {
+            if (currentValue < priceLowThreshold) {
                 priceStatus.textContent = "Prices are Low";
                 priceStatus.style.color = gaugeColor;
                 priceStatus.style.fontWeight = "bold";
-            } else if (currentValue < highThreshold) {
+            } else if (currentValue < priceHighThreshold) {
                 priceStatus.textContent = "Prices are Medium";
                 priceStatus.style.color = gaugeColor;
                 priceStatus.style.fontWeight = "bold";
@@ -213,12 +208,12 @@
             evMaintaining.style.display = 'none';
             evDischarging.style.display = 'none';
             
-            // Show the appropriate SVG based on throttle value
-            if (currentThrottle < 0.33) {
+            // Show the appropriate SVG based on throttle value using thresholds from gauge data
+            if (currentThrottle < throttleLowThreshold) {
                 throttleStatus.textContent = "Stopping Charging...";
                 throttleStatus.style.color = gauge2Color;
                 evDischarging.style.display = 'block';
-            } else if (currentThrottle < 0.66) {
+            } else if (currentThrottle < throttleHighThreshold) {
                 throttleStatus.textContent = "Charging at Half Power...";
                 throttleStatus.style.color = gauge2Color;
                 evMaintaining.style.display = 'block';

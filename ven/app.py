@@ -9,14 +9,14 @@ import requests
 import json
 from datetime import datetime, timedelta
 import threading
-import time
+from time import sleep
 import pprint
 from random import random
 import numpy as np
 
 app = Flask(__name__)
 
-VEN_TYPE = "wh" # "hvac, wh, or hvac"
+VEN_TYPE = "hvac" # "hvac, wh, or hvac"
 
 @app.route("/")
 def home():
@@ -76,10 +76,26 @@ def data():
         "currentThrottle": throttle,
         "minThrottle": 0,
         "maxThrottle": 1,
-        "currentHour": hour
+        "currentHour": hour,
+        # Static threshold values for price gauge
+        "priceLowThreshold": 0.1,  # Static value for low price threshold
+        "priceHighThreshold": 0.9,  # Static value for high price threshold
+        # Static threshold values for throttle gauge
+        "throttleLowThreshold": 0.1,  # Static value for low throttle threshold
+        "throttleHighThreshold": 0.9  # Static value for high throttle threshold
     }
     
     return jsonify(gauge_data)
 
+# def cycle_end_uses():
+#     global VEN_TYPE
+#     while True:
+#         for i in range(0,3):
+#             VEN_TYPE = ["ev","wh","hvac"][i]
+#             print(VEN_TYPE)
+#             sleep(10)
+
 if __name__ == "__main__":
+    # thread = threading.Thread(target=cycle_end_uses, daemon=True)
+    # thread.start()
     app.run(port=8081, debug=True)
